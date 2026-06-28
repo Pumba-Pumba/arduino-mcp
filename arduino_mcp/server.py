@@ -58,6 +58,50 @@ print("="*60 + "\n")
 
 @mcp.tool(
     annotations={
+        "title": "Check Arduino CLI Installation",
+        "readOnlyHint": True
+    }
+)
+async def check_arduino_cli_installed(ctx: Context = None) -> str:
+    """
+    Check whether Arduino CLI is installed and return its version.
+    Always run this first when starting a new Arduino session.
+    """
+    if ctx:
+        await ctx.info("Checking Arduino CLI installation...")
+    if cli.is_installed():
+        version = cli.get_version()
+        return f"Arduino CLI is installed.\nVersion: {version}"
+    return (
+        "Arduino CLI is NOT installed or not found in PATH.\n\n"
+        "Install it from: https://arduino.github.io/arduino-cli/latest/installation/\n\n"
+        "Windows: winget install ArduinoSA.CLI\n"
+        "macOS:   brew install arduino-cli\n"
+        "Linux:   curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh"
+    )
+
+
+@mcp.tool(
+    annotations={
+        "title": "Get Arduino CLI Help",
+        "readOnlyHint": True
+    }
+)
+async def get_arduino_help(command: str = "", ctx: Context = None) -> str:
+    """
+    Get help text for Arduino CLI commands.
+
+    Args:
+        command: Specific command to get help for, e.g. "compile", "upload", "board".
+                 Leave empty for general help.
+    """
+    if ctx:
+        await ctx.info(f"Fetching help for: {'arduino-cli ' + command if command else 'arduino-cli'}")
+    return cli.get_help(command if command else None)
+
+
+@mcp.tool(
+    annotations={
         "title": "Execute Raw Arduino CLI Command",
         "readOnlyHint": False,
         "openWorldHint": True
@@ -116,6 +160,64 @@ async def list_ports(arduino_only: bool = False, ctx: Context = None) -> str:
         if ctx:
             await ctx.info(f"Found {len(ports)} port(s)")
         return json.dumps(ports, indent=2)
+
+
+@mcp.tool(
+    annotations={
+        "title": "Find Arduino Serial Ports",
+        "readOnlyHint": True
+    }
+)
+async def find_arduino_ports(ctx: Context = None) -> str:
+    """
+    Find serial ports that have an Arduino (or Arduino-compatible) device connected.
+    Filters by known USB chip identifiers: CH340, CP210x, FTDI, Arduino.
+    Use get_best_port() if you just want the single recommended port.
+    """
+    if ctx:
+        await ctx.info("Scanning for Arduino devices on serial ports...")
+    ports = PortDetector.find_arduino_ports()
+    if not ports:
+        all_ports = PortDetector.list_ports()
+        msg = "No Arduino devices detected on any serial port.\n\n"
+        if all_ports:
+            msg += f"Other ports available ({len(all_ports)}):\n"
+            msg += json.dumps(all_ports, indent=2)
+        else:
+            msg += "No serial ports found at all. Check USB connection."
+        return msg
+    if ctx:
+        await ctx.info(f"Found {len(ports)} Arduino device(s)")
+    return f"Arduino devices found ({len(ports)}):\n" + json.dumps(ports, indent=2)
+
+
+@mcp.tool(
+    annotations={
+        "title": "Get Best Arduino Port",
+        "readOnlyHint": True
+    }
+)
+async def get_best_port(ctx: Context = None) -> str:
+    """
+    Auto-detect and return the single best port for uploading to an Arduino.
+    Prioritises known Arduino chips (CP210x, CH340, FTDI) over generic ports.
+    Use this instead of manually checking ports when you just want to upload.
+    """
+    if ctx:
+        await ctx.info("Auto-detecting best Arduino port...")
+    port = PortDetector.get_best_port()
+    if port:
+        if ctx:
+            await ctx.info(f"Recommended port: {port}")
+        return f"Recommended port: {port}"
+    return (
+        "No suitable port found.\n\n"
+        "Tips:\n"
+        "- Check that your Arduino is plugged in via USB\n"
+        "- Try a different USB cable or port\n"
+        "- On Windows, check Device Manager for the COM port\n"
+        "- Run find_arduino_ports() for more detail"
+    )
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
@@ -419,6 +521,52 @@ async def write_sketch(sketch_path: str, code: str, ctx: Context = None) -> str:
             await ctx.error(f"Failed to write sketch: {str(e)}")
         return f"Error: {str(e)}"
     
+
+@mcp.tool(
+    annotations={
+        "title": "Initialize Arduino CLI Config",
+        "readOnlyHint": False
+    }
+)
+async def initialize_config(ctx: Context = None) -> str:
+    """
+    Initialize the Arduino CLI configuration file.
+    Run this once after installing Arduino CLI for the first time,
+    or if the config file is missing or corrupted.
+    """
+    if ctx:
+        await ctx.info("Initializing Arduino CLI configuration...")
+    result = cli.config_init()
+    if result["success"]:
+        if ctx:
+            await ctx.info("Configuration initialized successfully")
+        return f"Arduino CLI configuration initialized.\n{result['stdout']}"
+    return f"Failed to initialize configuration:\n{result['stderr']}"
+
+
+@mcp.tool(
+    annotations={
+        "title": "Check ImageMagick Installation",
+        "readOnlyHint": True
+    }
+)
+async def check_imagemagick_installed(ctx: Context = None) -> str:
+    """
+    Check whether ImageMagick is installed.
+    ImageMagick is required for the convert_image_to_c_array tool.
+    It is optional for all other Arduino functionality.
+    """
+    if ctx:
+        await ctx.info("Checking ImageMagick installation...")
+    if ImageConverter.is_imagemagick_installed():
+        return "ImageMagick is installed and ready to use."
+    return (
+        "ImageMagick is NOT installed.\n\n"
+        "It is only needed for image-to-C-array conversion (OLED/TFT displays).\n"
+        "Install from: https://imagemagick.org/script/download.php\n\n"
+        "Windows: winget install ImageMagick.ImageMagick"
+    )
+
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
 async def clean_cache(ctx: Context) -> str:
