@@ -800,15 +800,18 @@ async def lint_arduino_project(
     """
     if not lint.is_installed():
         return "Arduino Lint not installed. Install: https://arduino.github.io/arduino-lint/latest/installation/"
-    
-    await ctx.info(f"Linting {project_path}...")
+
+    if ctx:
+        await ctx.info(f"Linting {project_path}...")
     result = lint.lint_project(project_path, compliance, library_manager)
-    
+
     if result["success"]:
-        await ctx.info("Linting completed")
+        if ctx:
+            await ctx.info("Linting completed")
         return json.dumps(result, indent=2)
     else:
-        await ctx.error("Linting failed")
+        if ctx:
+            await ctx.error("Linting failed")
         return json.dumps(result, indent=2)
 
 
