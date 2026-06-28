@@ -68,7 +68,8 @@ async def arduino_cli_command(command: str, ctx: Context) -> str:
     try:
         await ctx.info(f"Executing: arduino-cli {command}")
         
-        args = command.split()
+        import shlex
+        args = shlex.split(command)
         result = cli.run_command(args)
         
         if result["success"]:
