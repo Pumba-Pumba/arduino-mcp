@@ -142,32 +142,51 @@ async def verify_port(port: str, ctx: Context) -> str:
 
 @mcp.tool(
     annotations={
-        "title": "Search Arduino Packages",
+        "title": "Search Arduino Board Cores",
         "readOnlyHint": True,
         "openWorldHint": True
     }
 )
-async def search(query: str, package_type: str, ctx: Context) -> str:
+async def search_cores(query: str, ctx: Context) -> str:
     """
-    Search for Arduino cores or libraries.
-    
-    Note: Library searches return only latest version details to reduce output size.
-    Use more specific search terms to narrow results (e.g., "Adafruit_SSD1306" instead of "display").
+    Search for Arduino board cores (platforms) by keyword.
+
+    Use this to find the right core to install for your board type.
+    Examples: "esp32", "avr", "samd", "rp2040"
+
+    After finding a core, install it with install_core().
     """
-    if package_type not in ["core", "library"]:
-        return "Error: package_type must be 'core' or 'library'"
-    
     try:
-        await ctx.info(f"Searching for {package_type}s: {query}")
-        
-        if package_type == "core":
-            result = cli.core_search(query)
-        else:
-            result = cli.lib_search(query)
-        
+        await ctx.info(f"Searching for cores: {query}")
+        result = cli.core_search(query)
         return json.dumps(result, indent=2)
     except ArduinoCLIError as e:
-        await ctx.error(f"Search failed: {str(e)}")
+        await ctx.error(f"Core search failed: {str(e)}")
+        return f"Error: {str(e)}"
+
+
+@mcp.tool(
+    annotations={
+        "title": "Search Arduino Libraries",
+        "readOnlyHint": True,
+        "openWorldHint": True
+    }
+)
+async def search_libraries(query: str, ctx: Context) -> str:
+    """
+    Search for Arduino libraries by keyword.
+
+    Use specific terms for better results (e.g., "Adafruit SSD1306" not just "display").
+    Note: Returns only latest version details to keep output manageable.
+
+    After finding a library, install it with install_library().
+    """
+    try:
+        await ctx.info(f"Searching for libraries: {query}")
+        result = cli.lib_search(query)
+        return json.dumps(result, indent=2)
+    except ArduinoCLIError as e:
+        await ctx.error(f"Library search failed: {str(e)}")
         return f"Error: {str(e)}"
 
 
