@@ -2,7 +2,6 @@ from fastmcp import FastMCP, Context
 import json
 from typing import Optional
 from pathlib import Path
-import glob
 from .cli_wrapper import ArduinoCLI, ArduinoCLIError
 from .port_detector import PortDetector
 from .image_converter import ImageConverter
@@ -344,6 +343,63 @@ async def create_new_sketch(sketch_name: str, path: Optional[str] = None, ctx: C
             await ctx.error(f"Sketch creation failed: {str(e)}")
         return f"Error: {str(e)}"
 
+
+@mcp.tool(
+    annotations={
+        "title": "Write Code to Arduino Sketch",
+        "readOnlyHint": False,
+        "destructiveHint": True
+    }
+)
+async def write_sketch(sketch_path: str, code: str, ctx: Context = None) -> str:
+    """
+    Write or overwrite code in an Arduino sketch (.ino) file.
+
+    Args:
+        sketch_path: Path to the .ino file or its parent folder.
+                     If a folder is given, writes to the matching .ino file inside it.
+                     Example: "C:/Users/uchac/Arduino/BlinkLED" or
+                              "C:/Users/uchac/Arduino/BlinkLED/BlinkLED.ino"
+        code: The full Arduino C++ code to write into the file.
+    """
+    try:
+        path = Path(sketch_path)
+
+        # Resolve whether we got a folder or a .ino file path
+        if path.suffix == ".ino":
+            ino_path = path
+        else:
+            # Folder path given (existing or not) — write to matching .ino inside it
+            ino_path = path / f"{path.name}.ino"
+
+        # Create parent directories if they don't exist
+        ino_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        ino_path.write_text(code, encoding="utf-8")
+
+        line_count = code.count("\n") + 1
+        char_count = len(code)
+
+        if ctx:
+            await ctx.info(f"Written {char_count} characters to {ino_path}")
+
+        return (
+            f"Code written successfully.\n"
+            f"File   : {ino_path}\n"
+            f"Lines  : {line_count}\n"
+            f"Characters: {char_count}"
+        )
+
+    except PermissionError:
+        if ctx:
+            await ctx.error(f"Permission denied: {sketch_path}")
+        return f"Error: Permission denied writing to {sketch_path}"
+    except Exception as e:
+        if ctx:
+            await ctx.error(f"Failed to write sketch: {str(e)}")
+        return f"Error: {str(e)}"
+    
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
 async def clean_cache(ctx: Context) -> str:
